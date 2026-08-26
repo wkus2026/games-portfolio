@@ -5,6 +5,61 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Games Portfolio - Mijn Spelletjes</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .game-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .game-modal.active {
+            display: flex;
+        }
+
+        .game-modal-content {
+            position: relative;
+            width: 90%;
+            height: 90%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-modal-close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+
+        .game-modal-close:hover {
+            background: #ff5252;
+        }
+
+        .game-modal iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -34,7 +89,7 @@
                     <div class="game-thumbnail">
                         <img src="https://via.placeholder.com/300x200?text=Flappy+Bird" alt="Flappy Bird">
                         <div class="game-overlay">
-                            <a href="games/flappy-bird.html" class="play-btn">SPEEL NU</a>
+                            <button class="play-btn" onclick="openGame('flappy-bird')">SPEEL NU</button>
                         </div>
                     </div>
                     <div class="game-info">
@@ -52,7 +107,7 @@
                     <div class="game-thumbnail">
                         <img src="https://via.placeholder.com/300x200?text=Snake+Game" alt="Snake">
                         <div class="game-overlay">
-                            <a href="games/snake.html" class="play-btn">SPEEL NU</a>
+                            <button class="play-btn" onclick="openGame('snake')">SPEEL NU</button>
                         </div>
                     </div>
                     <div class="game-info">
@@ -70,7 +125,7 @@
                     <div class="game-thumbnail">
                         <img src="https://via.placeholder.com/300x200?text=Platformer+Mini" alt="Platformer">
                         <div class="game-overlay">
-                            <a href="games/platformer-mini.html" class="play-btn">SPEEL NU</a>
+                            <button class="play-btn" onclick="openGame('platformer-mini')">SPEEL NU</button>
                         </div>
                     </div>
                     <div class="game-info">
@@ -172,6 +227,54 @@
         </div>
     </footer>
 
+    <!-- Game Modal -->
+    <div class="game-modal" id="gameModal">
+        <div class="game-modal-content">
+            <button class="game-modal-close" onclick="closeGame()">✕</button>
+            <iframe id="gameFrame" src=""></iframe>
+        </div>
+    </div>
+
     <script src="script.js"></script>
+    <script>
+        function openGame(gameName) {
+            const gameFrame = document.getElementById('gameFrame');
+            const gameModal = document.getElementById('gameModal');
+            
+            const gameMap = {
+                'flappy-bird': 'games/flappy-bird.html',
+                'snake': 'games/snake.html',
+                'platformer-mini': 'games/platformer-mini.html'
+            };
+            
+            if (gameMap[gameName]) {
+                gameFrame.src = gameMap[gameName];
+                gameModal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        function closeGame() {
+            const gameModal = document.getElementById('gameModal');
+            const gameFrame = document.getElementById('gameFrame');
+            gameModal.classList.remove('active');
+            gameFrame.src = '';
+            document.body.style.overflow = 'auto';
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('gameModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeGame();
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeGame();
+            }
+        });
+    </script>
 </body>
 </html>
