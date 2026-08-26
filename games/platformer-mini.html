@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platformer Mini - Jump & Collect</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            font-family: Arial, sans-serif;
+        }
+
+        .game-wrapper {
+            text-align: center;
+        }
+
+        h1 {
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .game-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background: linear-gradient(to bottom, #87ceeb 0%, #e0f6ff 100%);
+            border: 3px solid #333;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .info {
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 18px;
+            display: flex;
+            justify-content: space-around;
+            max-width: 800px;
+            margin: 0 auto 15px;
+        }
+
+        .info span {
+            color: #38ef7d;
+            font-weight: bold;
+        }
+
+        .controls {
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 14px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            display: none;
+            z-index: 100;
+            min-width: 280px;
+            border: 3px solid #38ef7d;
+        }
+
+        .game-over h2 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #38ef7d;
+        }
+
+        .game-over p {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        .game-over button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #38ef7d;
+            color: #333;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .game-over button:hover {
+            background: #11998e;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-wrapper">
+        <h1>🎮 Platformer Mini - Jump & Collect</h1>
+        <div class="info">
+            <div>Score: <span id="score">0</span></div>
+            <div>Level: <span id="level">1</span></div>
+            <div>Health: <span id="health">3</span></div>
+        </div>
+        <div class="controls">
+            A/D of ← → om te bewegen | SPATIE om te springen | Verzamel munten (⭐) en vermijd vijanden (👿)
+        </div>
+        <div class="game-container">
+            <canvas id="gameCanvas" width="800" height="400"></canvas>
+            <div class="game-over" id="gameOver">
+                <h2 id="gameOverTitle">Level Voltooid!</h2>
+                <p>Score: <span id="finalScore">0</span></p>
+                <p id="levelMessage"></p>
+                <button onclick="location.reload()">Opnieuw Spelen</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Player
+        const player = {
+            x: 50,
+            y: 250,
+            width: 30,
+            height: 40,
+            velocityY: 0,
+            velocityX: 0,
+            speed: 5,
+            jumpPower: 12,
+            isJumping: false,
+            grounded: false
+        };
+
+        // Game variables
+        let coins = [];
+        let enemies = [];
+        let platforms = [];
+        let score = 0;
+        let health = 3;
+        let level = 1;
+        let gameRunning = true;
+        let gravity = 0.6;
+
+        // Keyboard input
+        const keys = {};
+        document.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === ' ') {
+                e.preventDefault();
+                if (player.grounded) {
+                    player.velocityY = -player.jumpPower;
+                    player.grounded = false;
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            keys[e.key.toLowerCase()] = false;
+        });
+
+        // Create platforms
+        function createPlatforms() {
+            platforms = [
+                { x: 0, y: 350, width: 800, height: 50 }, // Ground
+                { x: 150, y: 280, width: 150, height: 20 },
+                { x: 450, y: 280, width: 150, height: 20 },
+                { x: 300, y: 180, width: 150, height: 20 },
+                { x: 600, y: 200, width: 150, height: 20 }
+            ];
+
+            // Add more platforms for higher levels
+            if (level >= 2) {
+                platforms.push({ x: 100, y: 120, width: 120, height: 20 });
+                platforms.push({ x: 700, y: 120, width: 80, height: 20 });
+            }
+        }
+
+        // Create coins
+        function createCoins() {
+            coins = [];
+            const coinPositions = [
+                { x: 225, y: 240 },
+                { x: 525, y: 240 },
+                { x: 375, y: 140 },
+                { x: 675, y: 160 }
+            ];
+
+            if (level >= 2) {
+                coinPositions.push({ x: 160, y: 80 });
+                coinPositions.push({ x: 740, y: 80 });
+            }
+
+            coinPositions.forEach(pos => {
+                coins.push({ x: pos.x, y: pos.y, width: 15, height: 15, collected: false });
+            });
+        }
+
+        // Create enemies
+        function createEnemies() {
+            enemies = [];
+            const enemyCount = 1 + level;
+            const positions = [200, 500, 350, 700];
+
+            for (let i = 0; i < enemyCount && i < positions.length; i++) {
+                enemies.push({
+                    x: positions[i],
+                    y: 310,
+                    width: 25,
+                    height: 25,
+                    velocityX: 2 + level * 0.5,
+                    minX: Math.max(0, positions[i] - 100),
+                    maxX: Math.min(800, positions[i] + 100)
+                });
+            }
+        }
+
+        // Initialize
+        createPlatforms();
+        createCoins();
+        createEnemies();
+
+        // Draw functions
+        function drawPlayer() {
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            
+            // Eyes
+            ctx.fillStyle = '#000';
+            ctx.fillRect(player.x + 8, player.y + 8, 6, 6);
+            ctx.fillRect(player.x + 16, player.y + 8, 6, 6);
+        }
+
+        function drawPlatforms() {
+            ctx.fillStyle = '#8B7355';
+            platforms.forEach(platform => {
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                
+                // Pattern
+                ctx.fillStyle = '#A0826D';
+                for (let i = 0; i < platform.width; i += 20) {
+                    ctx.fillRect(platform.x + i, platform.y, 10, platform.height);
+                }
+                ctx.fillStyle = '#8B7355';
+            });
+        }
+
+        function drawCoins() {
+            coins.forEach(coin => {
+                if (!coin.collected) {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.beginPath();
+                    ctx.arc(coin.x, coin.y, coin.width / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#FFA500';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            });
+        }
+
+        function drawEnemies() {
+            ctx.fillStyle = '#FF0000';
+            enemies.forEach(enemy => {
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+                
+                // Eyes
+                ctx.fillStyle = '#000';
+                ctx.fillRect(enemy.x + 5, enemy.y + 5, 4, 4);
+                ctx.fillRect(enemy.x + 16, enemy.y + 5, 4, 4);
+                ctx.fillStyle = '#FF0000';
+            });
+        }
+
+        // Update functions
+        function updatePlayer() {
+            // Horizontal movement
+            player.velocityX = 0;
+            if (keys['a'] || keys['arrowleft']) player.velocityX = -player.speed;
+            if (keys['d'] || keys['arrowright']) player.velocityX = player.speed;
+
+            player.x += player.velocityX;
+
+            // Boundaries
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+
+            // Gravity
+            player.velocityY += gravity;
+            player.y += player.velocityY;
+
+            player.grounded = false;
+
+            // Platform collision
+            platforms.forEach(platform => {
+                if (player.velocityY >= 0 &&
+                    player.y + player.height <= platform.y + 5 &&
+                    player.y + player.height + player.velocityY >= platform.y &&
+                    player.x + player.width > platform.x &&
+                    player.x < platform.x + platform.width) {
+                    player.velocityY = 0;
+                    player.y = platform.y - player.height;
+                    player.grounded = true;
+                }
+            });
+
+            // Fall off bottom
+            if (player.y > canvas.height) {
+                health--;
+                document.getElementById('health').textContent = health;
+                if (health <= 0) {
+                    endGame(false, 'Game Over! Du fallet ned!');
+                } else {
+                    player.x = 50;
+                    player.y = 250;
+                    player.velocityY = 0;
+                }
+            }
+        }
+
+        function updateEnemies() {
+            enemies.forEach(enemy => {
+                enemy.x += enemy.velocityX;
+
+                if (enemy.x <= enemy.minX || enemy.x + enemy.width >= enemy.maxX) {
+                    enemy.velocityX *= -1;
+                }
+
+                // Check collision with player
+                if (player.x < enemy.x + enemy.width &&
+                    player.x + player.width > enemy.x &&
+                    player.y < enemy.y + enemy.height &&
+                    player.y + player.height > enemy.y) {
+                    health--;
+                    document.getElementById('health').textContent = health;
+                    if (health <= 0) {
+                        endGame(false, 'Game Over! Du gick på en fiende!');
+                    } else {
+                        player.x = 50;
+                        player.y = 250;
+                    }
+                }
+            });
+        }
+
+        function updateCoins() {
+            coins.forEach(coin => {
+                if (!coin.collected &&
+                    player.x < coin.x + coin.width &&
+                    player.x + player.width > coin.x &&
+                    player.y < coin.y + coin.height &&
+                    player.y + player.height > coin.y) {
+                    coin.collected = true;
+                    score += 10;
+                    document.getElementById('score').textContent = score;
+                }
+            });
+
+            // Check if all coins collected
+            if (coins.every(coin => coin.collected)) {
+                levelComplete();
+            }
+        }
+
+        function levelComplete() {
+            gameRunning = false;
+            level++;
+            createPlatforms();
+            createCoins();
+            createEnemies();
+            document.getElementById('level').textContent = level;
+            document.getElementById('gameOverTitle').textContent = 'Level Voltooid!';
+            document.getElementById('levelMessage').textContent = `Goed gedaan! Ga naar level ${level}`;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        function endGame(success = true, message = '') {
+            gameRunning = false;
+            document.getElementById('gameOverTitle').textContent = success ? 'Gewonnen!' : message;
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        // Game loop
+        function gameLoop() {
+            // Clear
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#87ceeb');
+            gradient.addColorStop(1, '#e0f6ff');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (gameRunning) {
+                updatePlayer();
+                updateEnemies();
+                updateCoins();
+            }
+
+            drawPlatforms();
+            drawCoins();
+            drawEnemies();
+            drawPlayer();
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+    </script>
+</body>
+</html>
